@@ -26,6 +26,26 @@ NPS - National Parks Service
 NWCA - EPA National Wetland Condition Assessment
 CVS - either Carolina Vegitation Survey or BLS Current Vegitation Survey (most lat and long are in the carolinas...)
 
+# Elevation resolution key (from https://github.com/tilezen/joerd/blob/master/docs/data-sources.md#what-is-the-ground-resolution)
+Ground resolution per zoom in meters at a given latitude:
+zoom	0°	      45°	      60°
+0	    156543.0	110692.6	78271.5
+1	    78271.5	  55346.3	  39135.8
+2	    39135.8	  27673.2	  19567.9
+3	    19567.9	  13836.6	  9783.9
+4	    9783.9  	6918.3	  4892.0
+5	    4892.0  	3459.1	  2446.0
+6	    2446.0  	1729.6	  1223.0
+7	    1223.0  	864.8	    611.5
+8	    611.5	    432.4	    305.7
+9	    305.7	    216.2	    152.9
+10	  152.9	    108.1	    76.4
+11	  76.4	    54.0	    38.2
+12	  38.2	    27.0	    19.1
+13	  19.1	    13.5	    9.6
+14	  9.6	      6.8	      4.8
+15	 4.8	      3.4	      2.4
+
 # Climate variable abbreviations/definitions
 tmax - Max Temperature, average for month, units = C
 tmin - Min Temperature, average for month, units = C
@@ -35,3 +55,14 @@ pet - Potential evapotranspiration, monthly total, units = mm (water movement fr
 aet - Actual Evapotranspiration, monthly total, units = mm
 def - Climate Water Deficit, monthly total, units = mm (?pet - aet?)
 vpd - Vapor Pressure Deficit, average for month, units = kpa
+
+# plant_types - info from wikipedia
+"Forb/herb" - herbaceous flowering plant that is not a graminoid. Especially found in grasslands and understory. Typically eudicots without woody stems. 
+"Graminoid" - herbaceous plant with grass-like morphology e.g., grasses, sedges, and rushes
+"Lichenous" - ?lichen? a hybrid colony of algae or cyanobacteria living symbiotically with fungus
+"Nonvascular" - plants without a vascular system e.g., algae and bryophytes (mosses, liverworts, and hornworts)
+"Shrub" - small to medium-sized perennial woody plan with persistent woody stems above the ground. Distinguished from trees by multiple stems and shorter height. 
+"Subshrub" - either a small shrub (less than 2m tall) or a perennial that is largely herbaceous with a slightly woody base e.g., lavender and thyme
+"Tree" - a perennial plant with an elongated stem or trunk often supporting branches and leaves
+"Vine" - any plant with a growth habit of trailing or climbing stems, lianas, or runners
+NA
