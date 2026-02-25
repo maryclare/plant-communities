@@ -66,3 +66,36 @@ vpd - Vapor Pressure Deficit, average for month, units = kpa
 "Tree" - a perennial plant with an elongated stem or trunk often supporting branches and leaves
 "Vine" - any plant with a growth habit of trailing or climbing stems, lianas, or runners
 NA
+
+
+# Data set explanations: 
+
+SPCIS_plots.csv is the dataset with all of the plot metadata
+
+SPCIS_plant_taxa_tw.csv is the dataset with all of the taxa data. It has been edited from the dataset found at 
+                        https://figshare.com/articles/dataset/SPCIS_planta_taxa_and_plot_information/19593373 
+                        because that dataset has special characters in rows 837234, 859173, and 939603 column 5 
+                        this made it so read_csv() deleted those rows. 
+                        The dataset is stored in an aws S3 bucket because it is too big for github
+                        It can be accessed with: 
+                            taxa_data <- aws.s3::s3read_using(read.csv, 
+                                object = "s3://plant-communities-taxa/SPCIS_plant_taxa_tw.csv")
+
+nps_herbs_northeast_spOcc_data.rds is the spOccupancy ready dataset that is output when clean.R is run with the following settings: 
+        eco_region         <- c("EASTERN TEMPERATE FORESTS", "NORTHERN FORESTS")
+        data_source        <- "NPS" 
+        include_elevation  <- TRUE # !getting elev data is slow! ~ 64s on small region
+        elevation_res      <- 6     # scale of larger plots ~= avg elev across plots
+        subset_region      <- TRUE  # if you want fewer plots for analysis
+        lon_min            <- -75 
+        lon_max            <- -65
+        lat_min            <- 41
+        lat_max            <- 50 # -75, -65, 41, 50 gives 1065 plots across NJ - ME
+        plant_type         <- "Forb/herb"
+        percent_occ_cutoff <- 0.05 # species in fewer than this prop of plots removed
+        # Limit to species that are present in 10 plots (trees) or 5% (others) of sites...
+        latent_var_cutoff  <- 0.75 # move species more abundant to end of ordering 
+        
+  
+        
+        
