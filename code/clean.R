@@ -257,7 +257,7 @@ for(var in climate_vars){
   
   # only need some of the points in the grid
   lat_inds <- sapply(plot_data$Y, function(x)
-  {which.min(abs(lat_nc - x))} - latmin + 1)
+  {which.min(abs(lat_nc - x))}) - latmin + 1
   lon_inds <- sapply(plot_data$X, function(x)
   {which.min(abs(lon_nc - x))}) - lonmin + 1
   

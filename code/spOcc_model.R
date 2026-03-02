@@ -36,44 +36,52 @@ dist_matrix <- dist(data_list$coords)
 #####
 # Initial values
 #####
+# factor loadings matrix
 lambda_inits <- matrix(0, num_species, num_factors)
 diag(lambda_inits) <- 1
 lambda_inits[lower.tri(lambda_inits)] <- rnorm(sum(lower.tri(lambda_inits)))
 
 
+######get inits for betas, and common means and vars: beta.comm and tau.sq.beta
+response <- data_list$y
+temp_df  <- cbind(response, data_list$covs)
+
+yhat <- temp_df[,1]
+temp <- lm(yhat~scale(tmin) + I(scale(tmin)^2) + scale(ppt) + I(scale(ppt)^2), 
+           data=temp_df)
+betas <- data.frame(temp$coefficients)
+
+for(i in 2:ncol(response)){
+  yhat <- temp_df[,i]
+  temp <- lm(yhat~scale(tmin) + I(scale(tmin)^2) + scale(ppt) + I(scale(ppt)^2), 
+             data=temp_df)
+  betas <- cbind(betas, temp$coefficients)
+}
+colnames(betas) <- colnames(data_list$y)
+betas <- t(betas)
+betas_mean <- data.frame(Intercept = mean(betas[, 1]),
+                         tmin = mean(betas[, 2]),
+                         tmin.2 = mean(betas[, 3]),
+                         ppt = mean(betas[, 4]),
+                         ppt.2 = mean(betas[, 5])) |> 
+  as.matrix.data.frame()
+betas_var  <- data.frame(Intercept = var(betas[, 1]),
+                         tmin = var(betas[, 2]),
+                         tmin.2 = var(betas[, 3]),
+                         ppt = var(betas[, 4]),
+                         ppt.2 = var(betas[, 5])) |> 
+  as.matrix.data.frame()
+
+inits      <- list(beta.comm = betas_mean,
+                  beta = betas,
+                  tau.sq.beta = betas_var,
+                  lambda = lambda_inits, 
+                  phi = 3 / mean(dist_matrix))
+
 
 
 # ---------------------------------------------------------------
 
-
-######get inits for beta, beta.com and tau.sq.beta
-resp  <- t(data_list$y)
-
-inidf <- cbind(resp, data_list$covs)
-spcs  <- 1:ncol(resp)
-betaz <- data.frame()
-
-for(i in spcs){
-  yhat  <- inidf[,i]
-  check <- summary(lm(yhat~scale(tmin) + I(scale(tmin)^2)+scale(ppt) + I(scale(ppt)^2),data=inidf))
-  bet   <- check$coefficients[,1]
-  betaz <- rbind(bet,betaz)
-}
-
-colnames(betaz) <- c("Intercept","tmin","tmin^2","ppt","ppt^2")
-
-betaz.mat <- as.matrix.data.frame(betaz)
-betaz.com <- data.frame(Intercept=mean(betaz$Intercept),tmin=mean(betaz$tmin),`tmin^2`=mean(betaz$`tmin^2`),ppt=mean(betaz$ppt),`ppt^2`=mean(betaz$`ppt^2`))
-betaz.var <- data.frame(Intercept=var(betaz$Intercept),tmin=var(betaz$tmin),`tmin^2`=var(betaz$`tmin^2`),ppt=var(betaz$ppt),`ppt^2`=var(betaz$`ppt^2`))
-
-betaz.com <- as.matrix.data.frame(betaz.com)
-betaz.var <- as.matrix.data.frame(betaz.var)
-
-inits     <- list(beta.comm = betaz.com,
-                  beta = betaz.mat,
-                  tau.sq.beta = betaz.var,
-                  lambda = lambda.inits, 
-                  phi = 3 / mean(dist.mat))
 
 #####
 # Priors
