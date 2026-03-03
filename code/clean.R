@@ -324,5 +324,7 @@ dim(plot_covariates)
 #####
 # Save data for inputting to spOccupancy model
 #####
-data_list <- list(y = taxa_data, coords = plot_coords, covs = plot_covariates)
+data_list <- list(y = t(taxa_data), # input to model is taxa x sites
+                  coords = plot_coords, # sites x 2
+                  covs = plot_covariates) # sites x vars
 saveRDS(data_list, "./data/nps_herbs_northeast_spOcc_data.rds")
