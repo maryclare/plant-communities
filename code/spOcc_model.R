@@ -3,21 +3,20 @@
 #     requires: dataset (current is nps_herbs_northeast_spOcc_data.rds)
 
 
-#####
-#     !!!!!!!! NOT COMPLETE !!!!!!!!
-
 
 library(spOccupancy)
 library(coda)
 
 # load the plot, taxa, and climate covariates data
 data_list <- readRDS("./data/nps_herbs_northeast_spOcc_data.rds")
+source("./code/model_assesment_functions.R")
 
 # settings: 
-num_factors     <- 4
+num_factors     <- 3
 num_neighbors   <- 5
 cov_model       <- "exponential"
 num_species     <- nrow(data_list$y)
+num_sites       <- nrow(data_list$coords)
 batch_length    <- 25 # default - documentation suggests leaving at 25
 num_batch       <- 5000 # num_iter = batch_length * num_batch
 num_burn        <- 75000
@@ -117,10 +116,9 @@ out <- sfJSDM(formula = jsdm_formula,
               n.thin = num_thin, 
               n.chains = num_chains)
 
-# Second run, multiple chains, and set inits to mean of last run
-
+# Second run, multiple chains, and set inits to mean of first run
 # settings: 
-num_factors     <- 4
+num_factors     <- 3
 num_neighbors   <- 5
 cov_model       <- "exponential"
 num_species     <- nrow(data_list$y)
@@ -134,6 +132,46 @@ tuning          <- list(phi = 0.5) # adjusts adaptive tuning for phi
 verbose         <- TRUE
 num_report      <- 100 # reports after number of batches
 
+inits <- list(beta.comm = colMeans(out$beta.comm.samples[1:5000,]),
+              beta = matrix(colMeans(out$beta.samples[1:5000, ]), 
+                            nrow = dim(data_list$y)[1]),
+              tau.sq.beta = colMeans(out$tau.sq.beta.samples[1:5000, ]),
+              lambda = matrix(colMeans(out$lambda.samples[1:5000, ]), 
+                              ncol = num_factors),
+              phi = colMeans(out$theta.samples[1:5000, ]))
+
+out <- sfJSDM(formula = jsdm_formula, 
+              data = data_list, 
+              inits = inits, 
+              n.batch = num_batch, 
+              batch.length = batch_length, 
+              accept.rate = 0.43, 
+              priors = priors, 
+              n.factors = num_factors,
+              cov.model = cov_model, 
+              tuning = tuning, 
+              # n.omp.threads = num_omp_threads, 
+              verbose = TRUE, 
+              NNGP = TRUE, 
+              n.neighbors = num_neighbors, 
+              n.report = num_report, 
+              n.burn = num_burn, 
+              n.thin = num_thin, 
+              n.chains = num_chains)
+
+plot_lin_comb(out)
+plot_lin_comb(out, 
+              species = sample(1:num_species, 1), 
+              site = sample(1:num_sites, 1))
+plot_lin_comb(out, 
+              species = sample(1:num_species, 1), 
+              site = sample(1:num_sites, 1))
+plot_lin_comb(out, 
+              species = sample(1:num_species, 1), 
+              site = sample(1:num_sites, 1))
+
+
+# Third run, arbitrarily take the mean of the first chain as the initial values
 inits <- list(beta.comm = colMeans(out$beta.comm.samples[1:3000,]),
               beta = matrix(colMeans(out$beta.samples[1:3000, ]), 
                             nrow = dim(data_list$y)[1]),
@@ -161,8 +199,18 @@ out <- sfJSDM(formula = jsdm_formula,
               n.thin = num_thin, 
               n.chains = num_chains)
 
-# Third run, multiple chains again, try setting inits to mean of third chain
+plot_lin_comb(out)
+plot_lin_comb(out, 
+              species = sample(1:num_species, 1), 
+              site = sample(1:num_sites, 1))
+plot_lin_comb(out, 
+              species = sample(1:num_species, 1), 
+              site = sample(1:num_sites, 1))
+plot_lin_comb(out, 
+              species = sample(1:num_species, 1), 
+              site = sample(1:num_sites, 1))
 
+# Fourth run, arbitrarily set inits to mean of third chain
 inits <- list(beta.comm = colMeans(out$beta.comm.samples[6001:9000,]),
               beta = matrix(colMeans(out$beta.samples[6001:9000, ]), 
                             nrow = dim(data_list$y)[1]),
