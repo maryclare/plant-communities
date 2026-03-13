@@ -87,7 +87,7 @@ priors <- list(beta.comm.normal = list(mean = 0, var = 2.72),
                phi.unif = list(3 / max(dist_matrix), 3 / min(dist_matrix)))
                #phi.unif = list(c(3/(2.5E06),3/(5E05),3/(5E04),3/(1E03),3/(100)), c(3/(5E05),3/(5E04),3/(1E03), 3/(100),3/(5))))
                #phi.unif = list(c(3/(100),3/(1E03),3/(5E04),3/(5E05),3/(2.5E06)), c(3/(5),3/(100),3/(1E03),3/(5E04),3/(5E05))))
-
+rm(dist_matrix)
 
 # phi.unif =  list(c(3/(100),3/(1E03),3/(5E04),3/(5E05),3/(2.5E06)), c(3/(5),3/(100),3/(1E03),3/(5E04),3/(5E05)))
 # tmp.df <- data.frame(low = phi.unif[[1]], high = phi.unif[[2]])
@@ -118,27 +118,22 @@ out <- sfJSDM(formula = jsdm_formula,
 
 # Second run, multiple chains, and set inits to mean of first run
 # settings: 
-num_factors     <- 3
-num_neighbors   <- 5
-cov_model       <- "exponential"
-num_species     <- nrow(data_list$y)
-batch_length    <- 25 # default - documentation suggests leaving at 25
 num_batch       <- 2000 # num_iter = batch_length * num_batch
 num_burn        <- 20000
-num_thin        <- 10 #
 num_chains      <- 3
-tuning          <- list(phi = 0.5) # adjusts adaptive tuning for phi
-# num_omp_threads <- 4
-verbose         <- TRUE
 num_report      <- 100 # reports after number of batches
 
-inits <- list(beta.comm = colMeans(out$beta.comm.samples[1:5000,]),
-              beta = matrix(colMeans(out$beta.samples[1:5000, ]), 
-                            nrow = dim(data_list$y)[1]),
-              tau.sq.beta = colMeans(out$tau.sq.beta.samples[1:5000, ]),
-              lambda = matrix(colMeans(out$lambda.samples[1:5000, ]), 
-                              ncol = num_factors),
-              phi = colMeans(out$theta.samples[1:5000, ]))
+
+data <- fit_until_converged(out, compute_elpd = FALSE)
+
+
+
+
+
+
+
+# reset inits at mean of post-burnin samples
+inits <- reset_inits(out, which_chain = 1, num_chains = 1, num_samples = 5000)
 
 out <- sfJSDM(formula = jsdm_formula, 
               data = data_list, 
@@ -172,6 +167,7 @@ plot_lin_comb(out,
 
 
 # Third run, arbitrarily take the mean of the first chain as the initial values
+
 inits <- list(beta.comm = colMeans(out$beta.comm.samples[1:3000,]),
               beta = matrix(colMeans(out$beta.samples[1:3000, ]), 
                             nrow = dim(data_list$y)[1]),
