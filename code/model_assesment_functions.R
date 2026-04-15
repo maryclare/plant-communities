@@ -146,12 +146,13 @@ reset_inits <- function(data, which_chain = 1, num_chains = 3, num_samples = 300
 
 fit_until_converged <- function(data, num_chains = 3, num_samples = 3000, 
                                 compute_elpd = TRUE){
+  tic("Function fit_until_converged")
   if(compute_elpd == TRUE){
     elpd <- elpd_diff(data, num_chains = num_chains, num_samples = num_samples)
     inits <- reset_inits(data, which_chain = elpd$best_chain, 
                          num_chains = num_chains, 
                          num_samples = num_samples)
-    best_elpds <- eldp$best_elpd
+    best_elpds <- elpd$best_elpd
   } else {
     elpd <- list(difference = 999, best_chain = 1)
     inits <- reset_inits(data, which_chain = elpd$best_chain, 
@@ -203,7 +204,7 @@ fit_until_converged <- function(data, num_chains = 3, num_samples = 3000,
   print(paste0("Total runs: ", runs))
   print(best_elpds)
   print("#~#~#~#")
-  
+  toc()
   return(out)
 }
 

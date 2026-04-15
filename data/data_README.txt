@@ -55,6 +55,7 @@ pet - Potential evapotranspiration, monthly total, units = mm (water movement fr
 aet - Actual Evapotranspiration, monthly total, units = mm
 def - Climate Water Deficit, monthly total, units = mm (?pet - aet?)
 vpd - Vapor Pressure Deficit, average for month, units = kpa
+elv - elevation 
 
 # plant_types - info from wikipedia
 "Forb/herb" - herbaceous flowering plant that is not a graminoid. Especially found in grasslands and understory. Typically eudicots without woody stems. 

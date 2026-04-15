@@ -214,18 +214,18 @@ plot_data         <- st_as_sf(plot_data, coords=c("Long","Lat"))
 st_crs(plot_data) <- st_crs(4326)
 plot_data         <- cbind(plot_data, as.data.frame(st_coordinates(plot_data)))
 
-# ########
-# # TW - map the coordinates:
-# lon_range <- c(min(plot_data$Long), max(plot_data$Long))
-# lat_range <- c(min(plot_data$Lat), max(plot_data$Lat))
-# usa_states <- st_as_sf(maps::map("state", fill=TRUE, plot=FALSE))
-# ggplot() + # State lines
-#   geom_sf(data = usa_states, fill = NA, color = "gray20", size = 0.1) +
-#   geom_sf(data = plot_data, alpha = 0.35) + # plot data on top
-#   coord_sf(xlim = lon_range, ylim = lat_range) + # limit to states we care about
-#   theme_bw() +
-#   labs(title = "Plot locations")
-# ########
+########
+# TW - map the coordinates:
+lon_range <- c(min(plot_data$X), max(plot_data$X))
+lat_range <- c(min(plot_data$Y), max(plot_data$Y))
+usa_states <- st_as_sf(maps::map("state", fill=TRUE, plot=FALSE))
+ggplot() + # State lines
+  geom_sf(data = usa_states, fill = NA, color = "gray20", size = 0.1) +
+  geom_sf(data = plot_data, alpha = 0.35) + # plot data on top
+  coord_sf(xlim = lon_range, ylim = lat_range) + # limit to states we care about
+  theme_bw() +
+  labs(title = "Plot locations")
+########
 
 
 #### Download and process TerraClim normals###
@@ -238,7 +238,7 @@ climate_vars <- c("tmax","tmin","soil","ppt","pet","aet","def","vpd")
 plot_covariates <- data.frame(Plot = rownames(plot_data))
 # enter in variable you want to download see: http://thredds.northwestknowledge.net:8080/thredds/terraclimate_aggregated.html
 for(var in climate_vars){
-  baseurlagg <- paste0(paste0("http://thredds.northwestknowledge.net:8080/thredds/dodsC/agg_terraclimate_",var),"_1958_CurrentYear_GLOBE.nc")
+  baseurlagg <- paste0(paste0("http://thredds.northwestknowledge.net:8080/thredds/dodsC/agg_terraclimate_",var),"_1950_CurrentYear_GLOBE.nc")
   nc <- nc_open(baseurlagg)
   
   # netCDF is read on grid, need min index (start) and how far to read (count) 

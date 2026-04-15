@@ -4,34 +4,70 @@
 
 
 
-library(spOccupancy)
-library(coda)
+library(mgcv)        # for Spatial+ confounding adjustment
+library(spOccupancy) # for occupancy model
+library(coda)        # for trace plots
+library(tictoc)      # for timing model runs
 
 # load the plot, taxa, and climate covariates data
 data_list <- readRDS("./data/nps_herbs_northeast_spOcc_data.rds")
 source("./code/model_assesment_functions.R")
 
 # settings: 
-num_factors     <- 3
+set.seed        <- 8273
+num_factors     <- 2
 num_neighbors   <- 5
 cov_model       <- "exponential"
 num_species     <- nrow(data_list$y)
 num_sites       <- nrow(data_list$coords)
 batch_length    <- 25 # default - documentation suggests leaving at 25
-num_batch       <- 5000 # num_iter = batch_length * num_batch
-num_burn        <- 75000
+num_batch       <- 3000 # num_iter = batch_length * num_batch
+num_burn        <- 50000
 num_thin        <- 10 #
 num_chains      <- 1
 tuning          <- list(phi = 0.5) # adjusts adaptive tuning for phi
-# num_omp_threads <- 4
+#num_omp_threads <- 8
 verbose         <- TRUE
-num_report      <- 500 # reports after number of batches
+num_report      <- 100 # reports after number of batches
+
+
+#####
+# Spatial+ treatment of covariates
+#####
+data_list$covs$tmaxr <- 
+  gam(data_list$covs$tmax ~ 
+        s(data_list$coords$X, data_list$coords$Y, k = 100, fx = T), 
+      method = "GCV.Cp")$residuals
+data_list$covs$tminr <- 
+  gam(data_list$covs$tmin ~ 
+        s(data_list$coords$X, data_list$coords$Y, k = 100, fx = T), 
+      method = "GCV.Cp")$residuals
+data_list$covs$soilr <- 
+  gam(data_list$covs$soil ~ 
+        s(data_list$coords$X, data_list$coords$Y, k = 100, fx = T), 
+      method = "GCV.Cp")$residuals
+data_list$covs$pptr <- 
+  gam(data_list$covs$ppt ~ 
+        s(data_list$coords$X, data_list$coords$Y, k = 100, fx = T), 
+      method = "GCV.Cp")$residuals
+data_list$covs$vpdr <- 
+  gam(data_list$covs$vpd ~ 
+        s(data_list$coords$X, data_list$coords$Y, k = 100, fx = T), 
+      method = "GCV.Cp")$residuals
+data_list$covs$elvr <- 
+  gam(data_list$covs$elv ~ 
+        s(data_list$coords$X, data_list$coords$Y, k = 100, fx = T), 
+      method = "GCV.Cp")$residuals
+
 
 # Model formula
-jsdm_formula <- ~ scale(tmin) + I(scale(tmin)^2) + scale(ppt) + I(scale(ppt)^2) 
+jsdm_formula <- ~ scale(tmaxr) + scale(tminr) + scale(soilr) + scale(pptr) + 
+  scale(vpdr) + scale(elvr) 
+# + I(scale(tminr)^2) + I(scale(pptr)^2) 
 
 # distance matrix between sites
 dist_matrix <- dist(data_list$coords)
+
 
 #####
 # Initial values
@@ -47,36 +83,46 @@ response <- data.frame(t(data_list$y))
 temp_df  <- cbind(response, data_list$covs)
 
 yhat <- temp_df[,1]
-temp <- lm(yhat~scale(tmin) + I(scale(tmin)^2) + scale(ppt) + I(scale(ppt)^2),
+temp <- lm(yhat ~ scale(tmaxr) + scale(tminr) + scale(soilr) + scale(pptr) + 
+             scale(vpdr) + scale(elvr),# + I(scale(tmin)^2) + I(scale(ppt)^2),
            data=temp_df)
 betas <- data.frame(temp$coefficients)
 
 for(i in 2:ncol(response)){
   yhat <- temp_df[,i]
-  temp <- lm(yhat~scale(tmin) + I(scale(tmin)^2) + scale(ppt) + I(scale(ppt)^2),
+  temp <- lm(yhat ~ scale(tmaxr) + scale(tminr) + scale(soilr) + scale(pptr) + 
+               scale(vpdr) + scale(elvr),# + I(scale(tmin)^2) + I(scale(ppt)^2),
              data=temp_df)
   betas <- cbind(betas, temp$coefficients)
 }
 colnames(betas) <- rownames(data_list$y)
 betas <- t(betas)
 betas_mean <- data.frame(Intercept = mean(betas[, 1]),
-                         tmin = mean(betas[, 2]),
-                         tmin.2 = mean(betas[, 3]),
-                         ppt = mean(betas[, 4]),
-                         ppt.2 = mean(betas[, 5])) |>
+                         tmaxr = mean(betas[, 2]),
+                         tminr = mean(betas[, 3]),
+                         soilr = mean(betas[, 4]),
+                         pptr = mean(betas[, 5]),
+                         vpdr = mean(betas[, 6]),
+                         elvr = mean(betas[, 7])) %>% #,
+  #tmin.2 = mean(betas[, 4]),
+  #ppt.2 = mean(betas[, 5])) |>
   as.matrix.data.frame()
 betas_var  <- data.frame(Intercept = var(betas[, 1]),
-                         tmin = var(betas[, 2]),
-                         tmin.2 = var(betas[, 3]),
-                         ppt = var(betas[, 4]),
-                         ppt.2 = var(betas[, 5])) |>
+                         tmaxr = var(betas[, 2]),
+                         tminr = var(betas[, 3]),
+                         soilr = var(betas[, 4]),
+                         pptr = var(betas[, 5]),
+                         vpdr = var(betas[, 6]),
+                         elvr = var(betas[, 7])) %>% #,
+  #tmin.2 = var(betas[, 4]),
+  #ppt.2 = var(betas[, 5])) |>
   as.matrix.data.frame()
 
 inits      <- list(beta.comm = betas_mean,
-                  beta = betas,
-                  tau.sq.beta = betas_var,
-                  lambda = lambda_inits,
-                  phi = 3 / mean(dist_matrix))
+                   beta = betas,
+                   tau.sq.beta = betas_var,
+                   lambda = lambda_inits,
+                   phi = runif(num_factors, 3 / max(dist_matrix), 3 / min(dist_matrix)))
 
 
 #####
@@ -116,25 +162,27 @@ out <- sfJSDM(formula = jsdm_formula,
               n.thin = num_thin, 
               n.chains = num_chains)
 
+saveRDS(out, paste0("nps_herbs_northeast_spatialPlus_k100_allCovs_", num_factors, "factors_modelRun_initial_", Sys.Date(), ".rds"))
+
+
 # Second run, multiple chains, and set inits to mean of first run
+lower <- 1
+upper <- dim(out$lambda.samples)[1]
+inits <- list(beta.comm = colMeans(out$beta.comm.samples[lower:upper,]),
+              beta = matrix(colMeans(out$beta.samples[lower:upper, ]), 
+                           nrow = dim(data_list$y)[1]),
+              tau.sq.beta = 
+               colMeans(out$tau.sq.beta.samples[lower:upper, ]),
+              lambda = 
+               matrix(colMeans(out$lambda.samples[lower:upper, ]), 
+                      ncol = num_factors),
+              phi = mean(out$theta.samples[lower:upper]))
 # settings: 
 num_batch       <- 2000 # num_iter = batch_length * num_batch
 num_burn        <- 20000
 num_chains      <- 3
 num_report      <- 100 # reports after number of batches
 
-
-data <- fit_until_converged(out, compute_elpd = FALSE)
-
-
-
-
-
-
-
-# reset inits at mean of post-burnin samples
-inits <- reset_inits(out, which_chain = 1, num_chains = 1, num_samples = 5000)
-
 out <- sfJSDM(formula = jsdm_formula, 
               data = data_list, 
               inits = inits, 
@@ -152,86 +200,58 @@ out <- sfJSDM(formula = jsdm_formula,
               n.report = num_report, 
               n.burn = num_burn, 
               n.thin = num_thin, 
-              n.chains = num_chains)
+              n.chains = num_chains,
+              k.fold.only = T, 
+              #k.fold.threads = num_omp_threads,
+              k.fold = 10)
 
-plot_lin_comb(out)
-plot_lin_comb(out, 
-              species = sample(1:num_species, 1), 
-              site = sample(1:num_sites, 1))
-plot_lin_comb(out, 
-              species = sample(1:num_species, 1), 
-              site = sample(1:num_sites, 1))
-plot_lin_comb(out, 
-              species = sample(1:num_species, 1), 
-              site = sample(1:num_sites, 1))
+saveRDS(out, paste0("nps_herbs_northeast_spatialPlus_k100_", num_factors, "factors_modelRun_10foldCV_run2_", Sys.Date(), ".rds"))
 
 
-# Third run, arbitrarily take the mean of the first chain as the initial values
 
-inits <- list(beta.comm = colMeans(out$beta.comm.samples[1:3000,]),
-              beta = matrix(colMeans(out$beta.samples[1:3000, ]), 
-                            nrow = dim(data_list$y)[1]),
-              tau.sq.beta = colMeans(out$tau.sq.beta.samples[1:3000, ]),
-              lambda = matrix(colMeans(out$lambda.samples[1:3000, ]), 
-                              ncol = num_factors),
-              phi = colMeans(out$theta.samples[1:3000, ]))
+# data <- fit_until_converged(out, compute_elpd = TRUE, num_samples = 2250)
 
-out <- sfJSDM(formula = jsdm_formula, 
-              data = data_list, 
-              inits = inits, 
-              n.batch = num_batch, 
-              batch.length = batch_length, 
-              accept.rate = 0.43, 
-              priors = priors, 
-              n.factors = num_factors,
-              cov.model = cov_model, 
-              tuning = tuning, 
-              # n.omp.threads = num_omp_threads, 
-              verbose = TRUE, 
-              NNGP = TRUE, 
-              n.neighbors = num_neighbors, 
-              n.report = num_report, 
-              n.burn = num_burn, 
-              n.thin = num_thin, 
-              n.chains = num_chains)
 
-plot_lin_comb(out)
-plot_lin_comb(out, 
-              species = sample(1:num_species, 1), 
-              site = sample(1:num_sites, 1))
-plot_lin_comb(out, 
-              species = sample(1:num_species, 1), 
-              site = sample(1:num_sites, 1))
-plot_lin_comb(out, 
-              species = sample(1:num_species, 1), 
-              site = sample(1:num_sites, 1))
 
-# Fourth run, arbitrarily set inits to mean of third chain
-inits <- list(beta.comm = colMeans(out$beta.comm.samples[6001:9000,]),
-              beta = matrix(colMeans(out$beta.samples[6001:9000, ]), 
-                            nrow = dim(data_list$y)[1]),
-              tau.sq.beta = colMeans(out$tau.sq.beta.samples[6001:9000, ]),
-              lambda = matrix(colMeans(out$lambda.samples[6001:9000, ]), 
-                              ncol = num_factors),
-              phi = colMeans(out$theta.samples[6001:9000, ]))
 
-out <- sfJSDM(formula = jsdm_formula, 
-              data = data_list, 
-              inits = inits, 
-              n.batch = num_batch, 
-              batch.length = batch_length, 
-              accept.rate = 0.43, 
-              priors = priors, 
-              n.factors = num_factors,
-              cov.model = cov_model, 
-              tuning = tuning, 
-              # n.omp.threads = num_omp_threads, 
-              verbose = TRUE, 
-              NNGP = TRUE, 
-              n.neighbors = num_neighbors, 
-              n.report = num_report, 
-              n.burn = num_burn, 
-              n.thin = num_thin, 
-              n.chains = num_chains)
 
-saveRDS(out, "../nps_herbs_northeast_spOcc_mod_3factors_fourth_run.rds")
+
+# # Third run, arbitrarily take the mean of the first chain as the initial values
+# 
+# inits <- list(beta.comm = colMeans(out$beta.comm.samples[1:3000,]),
+#               beta = matrix(colMeans(out$beta.samples[1:3000, ]), 
+#                             nrow = dim(data_list$y)[1]),
+#               tau.sq.beta = colMeans(out$tau.sq.beta.samples[1:3000, ]),
+#               lambda = matrix(colMeans(out$lambda.samples[1:3000, ]), 
+#                               ncol = num_factors),
+#               phi = colMeans(out$theta.samples[1:3000, ]))
+# 
+# out <- sfJSDM(formula = jsdm_formula, 
+#               data = data_list, 
+#               inits = inits, 
+#               n.batch = num_batch, 
+#               batch.length = batch_length, 
+#               accept.rate = 0.43, 
+#               priors = priors, 
+#               n.factors = num_factors,
+#               cov.model = cov_model, 
+#               tuning = tuning, 
+#               # n.omp.threads = num_omp_threads, 
+#               verbose = TRUE, 
+#               NNGP = TRUE, 
+#               n.neighbors = num_neighbors, 
+#               n.report = num_report, 
+#               n.burn = num_burn, 
+#               n.thin = num_thin, 
+#               n.chains = num_chains)
+# 
+# plot_lin_comb(out)
+# plot_lin_comb(out, 
+#               species = sample(1:num_species, 1), 
+#               site = sample(1:num_sites, 1))
+# plot_lin_comb(out, 
+#               species = sample(1:num_species, 1), 
+#               site = sample(1:num_sites, 1))
+# plot_lin_comb(out, 
+#               species = sample(1:num_species, 1), 
+#               site = sample(1:num_sites, 1))
