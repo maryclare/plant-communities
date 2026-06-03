@@ -1,0 +1,199 @@
+### Run 20 factor model: 
+
+#####
+# This script runs the spOccupancy model 
+#     requires: dataset (current is nps_herbs_northeast_spOcc_data.rds)
+
+
+library(mgcv)        # for Spatial+ confounding adjustment
+library(spOccupancy) # for occupancy model
+library(coda)        # for trace plots
+library(tictoc)      # for timing model runs
+
+# load the plot, taxa, and climate covariates data
+data_list <- readRDS("./data/wvnhp_herbs_northeast_spOcc_data.rds")
+source("./code/model_assesment_functions.R")
+
+# settings: 
+set.seed        <- 8273
+num_factors     <- 20
+num_neighbors   <- 5
+cov_model       <- "exponential"
+num_species     <- nrow(data_list$y)
+num_sites       <- nrow(data_list$coords)
+batch_length    <- 25 # default - documentation suggests leaving at 25
+num_batch       <- 3000 # num_iter = batch_length * num_batch
+num_burn        <- 50000
+num_thin        <- 10 #
+num_chains      <- 1
+tuning          <- list(phi = 0.5) # adjusts adaptive tuning for phi
+num_omp_threads <- 20
+verbose         <- TRUE
+num_report      <- 100 # reports after number of batches
+
+#####
+# Spatial+ treatment of covariates
+#####
+data_list$covs$tmaxr <- 
+  gam(data_list$covs$tmax ~ 
+        s(data_list$coords$X, data_list$coords$Y, k = 100, fx = T), 
+      method = "GCV.Cp")$residuals
+data_list$covs$tminr <- 
+  gam(data_list$covs$tmin ~ 
+        s(data_list$coords$X, data_list$coords$Y, k = 100, fx = T), 
+      method = "GCV.Cp")$residuals
+data_list$covs$soilr <- 
+  gam(data_list$covs$soil ~ 
+        s(data_list$coords$X, data_list$coords$Y, k = 100, fx = T), 
+      method = "GCV.Cp")$residuals
+data_list$covs$pptr <- 
+  gam(data_list$covs$ppt ~ 
+        s(data_list$coords$X, data_list$coords$Y, k = 100, fx = T), 
+      method = "GCV.Cp")$residuals
+data_list$covs$vpdr <- 
+  gam(data_list$covs$vpd ~ 
+        s(data_list$coords$X, data_list$coords$Y, k = 100, fx = T), 
+      method = "GCV.Cp")$residuals
+data_list$covs$elvr <- 
+  gam(data_list$covs$elv ~ 
+        s(data_list$coords$X, data_list$coords$Y, k = 100, fx = T), 
+      method = "GCV.Cp")$residuals
+
+
+# Model formula
+jsdm_formula <- ~ scale(tmaxr) + scale(tminr) + scale(soilr) + scale(pptr) + 
+  scale(vpdr) + scale(elvr) 
+
+
+# scale(tmaxr) + scale(tminr) + scale(soilr) + scale(pptr) + 
+# scale(vpdr) + scale(elvr) 
+# ~ scale(tminr) + scale(soilr) + scale(pptr) + 
+# scale(vpdr) + scale(elvr) 
+# + I(scale(tminr)^2) + I(scale(pptr)^2) 
+
+# distance matrix between sites
+dist_matrix <- dist(data_list$coords)
+
+
+#####
+# Initial values
+#####
+# factor loadings matrix
+lambda_inits <- matrix(0, num_species, num_factors)
+diag(lambda_inits) <- 1
+lambda_inits[lower.tri(lambda_inits)] <- rnorm(sum(lower.tri(lambda_inits)))
+
+
+# inits for betas, and common means and vars: beta.comm and tau.sq.beta
+response <- data.frame(t(data_list$y))
+temp_df  <- cbind(response, data_list$covs)
+
+yhat <- temp_df[,1]
+temp <- lm(yhat ~ scale(tmaxr) + scale(tminr) + scale(soilr) + scale(pptr) + 
+             scale(vpdr) + scale(elvr) ,
+           data=temp_df)
+betas <- data.frame(temp$coefficients)
+
+for(i in 2:ncol(response)){
+  yhat <- temp_df[,i]
+  temp <- lm(yhat ~ scale(tmaxr) + scale(tminr) + scale(soilr) + scale(pptr) + 
+               scale(vpdr) + scale(elvr) ,
+             data=temp_df)
+  betas <- cbind(betas, temp$coefficients)
+}
+colnames(betas) <- rownames(data_list$y)
+betas <- t(betas)
+betas_mean <- data.frame(Intercept = mean(betas[, 1]),
+                         tmaxr = mean(betas[, 2]),
+                         tminr = mean(betas[, 3]),
+                         soilr = mean(betas[, 4]),
+                         pptr = mean(betas[, 5]),
+                         vpdr = mean(betas[, 6]),
+                         elvr = mean(betas[, 7])) %>% #,
+  #tmin.2 = mean(betas[, 4]),
+  #ppt.2 = mean(betas[, 5])) |>
+  as.matrix.data.frame()
+betas_var  <- data.frame(Intercept = var(betas[, 1]),
+                         tmaxr = var(betas[, 2]),
+                         tminr = var(betas[, 3]),
+                         soilr = var(betas[, 4]),
+                         pptr = var(betas[, 5]),
+                         vpdr = var(betas[, 6]),
+                         elvr = var(betas[, 7])) %>% #,
+  #tmin.2 = var(betas[, 4]),
+  #ppt.2 = var(betas[, 5])) |>
+  as.matrix.data.frame()
+
+inits      <- list(beta.comm = betas_mean,
+                   beta = betas,
+                   tau.sq.beta = betas_var,
+                   lambda = lambda_inits,
+                   phi = runif(num_factors, 3 / max(dist_matrix), 3 / min(dist_matrix)))
+# c(0.0006, 0.001, 0.01, 0.75, 2))
+
+
+#####
+# Priors
+#####
+priors <- list(beta.comm.normal = list(mean = 0, var = 2.72),
+               tau.sq.beta.ig = list(a = 0.1, b = 0.1),
+               # phi.unif = list(c(3 / max(dist_matrix), 0.0005, 0.005, 0.5, 1), 
+               #                 c(0.0015, 0.0025, 0.65, 3/ min(dist_matrix), 5)))
+               phi.unif = list(3 / max(dist_matrix), 3 / min(dist_matrix)))
+#phi.unif = list(c(3/(2.5E06),3/(5E05),3/(5E04),3/(1E03),3/(100)), c(3/(5E05),3/(5E04),3/(1E03), 3/(100),3/(5))))
+#phi.unif = list(c(3/(100),3/(1E03),3/(5E04),3/(5E05),3/(2.5E06)), c(3/(5),3/(100),3/(1E03),3/(5E04),3/(5E05))))
+rm(dist_matrix)
+
+# phi.unif =  list(c(3/(100),3/(1E03),3/(5E04),3/(5E05),3/(2.5E06)), c(3/(5),3/(100),3/(1E03),3/(5E04),3/(5E05)))
+# tmp.df <- data.frame(low = phi.unif[[1]], high = phi.unif[[2]])
+# inits$phi <- apply(tmp.df, 1, mean)
+
+
+#####
+# run the model
+#####
+out <- readRDS("nps_herbs_northeast_spatialPlus_k100_20factors_modelRun_initial_2026-04-13.rds")
+
+# Second run, multiple chains, and set inits to mean of first run
+lower <- 1
+upper <- dim(out$lambda.samples)[1]
+inits <- list(beta.comm = colMeans(out$beta.comm.samples[lower:upper,]),
+              beta = matrix(colMeans(out$beta.samples[lower:upper, ]), 
+                            nrow = dim(data_list$y)[1]),
+              tau.sq.beta = 
+                colMeans(out$tau.sq.beta.samples[lower:upper, ]),
+              lambda = 
+                matrix(colMeans(out$lambda.samples[lower:upper, ]), 
+                       ncol = num_factors),
+              phi = colMeans(out$theta.samples[lower:upper, ]))
+# settings: 
+num_batch       <- 1 # num_iter = batch_length * num_batch
+num_burn        <- 9
+num_chains      <- 3
+num_report      <- 100 # reports after number of batches
+
+out <- sfJSDM(formula = jsdm_formula, 
+              data = data_list, 
+              inits = inits, 
+              n.batch = num_batch, 
+              batch.length = batch_length, 
+              accept.rate = 0.43, 
+              priors = priors, 
+              n.factors = num_factors,
+              cov.model = cov_model, 
+              tuning = tuning, 
+              n.omp.threads = num_omp_threads, 
+              verbose = TRUE, 
+              NNGP = TRUE, 
+              n.neighbors = num_neighbors, 
+              n.report = num_report, 
+              n.burn = num_burn, 
+              n.thin = num_thin, 
+              n.chains = num_chains, 
+              k.fold = 10, 
+              k.fold.only = T, 
+              k.fold.threads = num_omp_threads)
+
+print("successfully ran the script!!")
+
+

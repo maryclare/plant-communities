@@ -161,7 +161,7 @@ fit_until_converged <- function(data, num_chains = 3, num_samples = 3000,
     best_elpds <- 999
   }
   
-  runs <- 1
+  runs <- 2
 
   while(elpd$difference > 5 & runs < 10){
     rm(out)
@@ -192,6 +192,7 @@ fit_until_converged <- function(data, num_chains = 3, num_samples = 3000,
                   n.thin = num_thin, 
                   n.chains = num_chains)
     toc()
+    saveRDS(out, paste0("nps_herbs_northeast_spatialPlus_k300_", num_factors, "factors_modelRun", runs, "_", Sys.Date(), ".rds"))
     elpd <- elpd_diff(out, num_chains = num_chains, num_samples = num_samples)
     best_elpds <- c(best_elpds, elpd$best_elpd)
     inits <- reset_inits(out, 
