@@ -315,11 +315,33 @@ plot_covariates <- plot_covariates |>
   column_to_rownames(var = "Plot") |> 
   na.omit() 
 
+# All same dimensions? 
+dim(taxa_data)
+dim(plot_coords)  
+dim(plot_covariates)
+
+
+# the covariate information is missing for three NPS plots in the full data. 
+# uncommon_plots <- which(!(rownames(plot_coords) %in% rownames(plot_covariates)))
+# plot_coords[uncommon_plots, ]
+# X         Y
+# CALO.114 1773980 -281339.3
+# CALO.116 1773019 -283365.3
+# CALO.119 1763860 -293300.1
+# plot showing missing sites is Missing_covariates_plot.png
+common_plots <- which(rownames(plot_coords) %in% rownames(plot_covariates))
+taxa_data    <- taxa_data[common_plots, ]
+plot_coords  <- plot_coords[common_plots, ]
+
+# Add soil covariates
+soil_data <- readRDS("./data/soil_covariates.rds")
+plot_covariates <- cbind(plot_covariates, soil_data[common_plots, ])
 
 # All same dimensions? 
 dim(taxa_data)
 dim(plot_coords)  
 dim(plot_covariates)
+
 
 #####
 # Save data for inputting to spOccupancy model
@@ -327,4 +349,4 @@ dim(plot_covariates)
 data_list <- list(y = t(taxa_data), # input to model is taxa x sites
                   coords = plot_coords, # sites x 2
                   covs = plot_covariates) # sites x vars
-saveRDS(data_list, "./data/nps_herbs_northeast_spOcc_data.rds")
+saveRDS(data_list, "./data/nps_full_wsoil_spOcc_data.rds")
