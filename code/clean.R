@@ -69,8 +69,8 @@ abline(h = 27, col = 2)
 #     and then several sets with 2, 3, and 4 subplots.
 # remove the 27 repeats, likely a transect... 
 maybe_transect <- plot_data$Plot[which(plot_data$coord_counts == 27)]
-plot_data <- filter_out(plot_data, coord_counts == 27)
-plot_data_repeated <- filter_out(plot_data_repeated, coord_counts == 27)
+plot_data <- filter(plot_data, !(coord_counts == 27))
+plot_data_repeated <- filter(plot_data_repeated, !(coord_counts == 27))
 
 # Check to see if these "nested" plots have different species:
 plot_data_nested <- filter(plot_data_repeated, !same_m2)
@@ -91,7 +91,7 @@ for(i in 1:length(unique_lat_lons)){
   taxa_data$Plot[which(taxa_data$Plot %in% temp_data$Plot)] <- plots_kept[i]
 }
 plots_removed <- setdiff(unique(plot_data_nested$Plot), plots_kept)
-plot_data     <- filter_out(plot_data, Plot %in% plots_removed)
+plot_data     <- filter(plot_data, !(Plot %in% plots_removed))
 plot_data$coord_counts[which(plot_data$Plot %in% plots_kept)] <- 1
 rm(plot_data_nested)
 
@@ -114,7 +114,7 @@ for(i in 1:length(unique_lat_lons)){
   taxa_data$Plot[which(taxa_data$Plot %in% temp_data$Plot)] <- plots_kept[i]
 }
 plots_removed <- setdiff(unique(plot_data_all_same$Plot), plots_kept)
-plot_data     <- filter_out(plot_data, Plot %in% plots_removed)
+plot_data     <- filter(plot_data, !(Plot %in% plots_removed))
 plot_data$coord_counts[which(plot_data$Plot %in% plots_kept)] <- 1
 rm(plot_data_all_same)
 
@@ -134,7 +134,7 @@ for(i in 1:length(unique_lat_lons)){
   taxa_data$Plot[which(taxa_data$Plot %in% temp_data$Plot)] <- plots_kept[i]
 }
 plots_removed <- setdiff(unique(plot_data_dmonths$Plot), plots_kept)
-plot_data     <- filter_out(plot_data, Plot %in% plots_removed)
+plot_data     <- filter(plot_data, !(Plot %in% plots_removed))
 plot_data$coord_counts[which(plot_data$Plot %in% plots_kept)] <- 1
 rm(plot_data_dmonths, plot_data_repeated, temp_data, i, plots_kept, 
    plots_removed, unique_lat_lons)
