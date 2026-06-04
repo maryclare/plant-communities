@@ -19,6 +19,7 @@ lon_min            <- -75
 lon_max            <- -65
 lat_min            <- 41
 lat_max            <- 50 # -75, -65, 41, 50 gives 1065 plots across NJ - ME
+filter_plant_type  <- FALSE
 plant_type         <- c("Forb/herb", "Graminoid", "Lichenous", "Nonvascular", 
                         "Shrub", "Subshrub", "Tree", "Vine")
                       # "Forb/herb"
@@ -174,12 +175,21 @@ rownames(plot_coords) <- rownames(plot_data)
 #####
 # Prepare taxa data
 #####
-taxa_metadata <- taxa_data |> 
-  filter(Plot %in% rownames(plot_data)) |> # subset to our plots chosen above
-  filter(grepl(plant_type, GrowthHabit)) |> # subset to one plant type
-  mutate(occupied = ifelse(PctCov > 0, 1, 0)) |> 
-  select(Plot, Year, SpCode, AcceptedTaxonName, # keep necessary columns
-         PctCov, NativeStatus, occupied) 
+if(filter_plant_type == TRUE){
+  taxa_metadata <- taxa_data |> 
+    filter(Plot %in% rownames(plot_data)) |> # subset to our plots chosen above
+    filter(grepl(plant_type, GrowthHabit)) |> # subset to one plant type
+    mutate(occupied = ifelse(PctCov > 0, 1, 0)) |> 
+    select(Plot, Year, SpCode, AcceptedTaxonName, # keep necessary columns
+           PctCov, NativeStatus, occupied, GrowthHabit) 
+} else {
+  taxa_metadata <- taxa_data |> 
+    filter(Plot %in% rownames(plot_data)) |> # subset to our plots chosen above
+    mutate(occupied = ifelse(PctCov > 0, 1, 0)) |> 
+    select(Plot, Year, SpCode, AcceptedTaxonName, # keep necessary columns
+           PctCov, NativeStatus, occupied, GrowthHabit) 
+}
+
 
 # change into data matrix with rows as Plots and columns as Species
 taxa_data <- as.data.table(taxa_metadata) |> 
@@ -336,8 +346,27 @@ taxa_data    <- taxa_data[common_plots, ]
 plot_coords  <- plot_coords[common_plots, ]
 
 # Add soil covariates
-soil_data <- readRDS("./data/soil_covariates.rds")
+soil_data       <- readRDS("./data/soil_covariates.rds")
 plot_covariates <- cbind(plot_covariates, soil_data[common_plots, ])
+
+# Check to see if any sites have missing covariates
+apply(plot_covariates, 2, function(x){sum(is.na(x))})
+    # The soil covariates are missing 238 sites
+# na_plots   <- which(is.na(plot_covariates$sand_200m))
+# lon_range  <- c(min(plot_data$X[na_plots]), max(plot_data$X[na_plots]))
+# lat_range  <- c(min(plot_data$Y[na_plots]), max(plot_data$Y[na_plots]))
+# usa_states <- st_as_sf(maps::map("state", fill=TRUE, plot=FALSE))
+# ggplot() + # State lines
+#   geom_sf(data = usa_states, fill = NA, color = "gray20", size = 0.1) +
+#   geom_sf(data = plot_data[-na_plots, ], alpha = 0.35, color = "red") +
+#   geom_sf(data = plot_data[na_plots, ], alpha = 0.35) +#, color = na_colors) + # plot data on top
+#   coord_sf(xlim = lon_range, ylim = lat_range) + # limit to states we care about
+#   theme_bw() +
+#   labs(title = "Plot locations")
+not_na_plots    <- which(!is.na(plot_covariates$sand_200m))
+taxa_data       <- taxa_data[not_na_plots, ]
+plot_coords     <- plot_coords[not_na_plots, ]
+plot_covariates <- plot_covariates[not_na_plots, ]
 
 # All same dimensions? 
 dim(taxa_data)
@@ -351,4 +380,4 @@ dim(plot_covariates)
 data_list <- list(y = t(taxa_data), # input to model is taxa x sites
                   coords = plot_coords, # sites x 2
                   covs = plot_covariates) # sites x vars
-saveRDS(data_list, "./data/nps_full_wsoil_spOcc_data.rds")
+saveRDS(data_list, "./data/nps_allfull_wsoil_spOcc_data.rds")
