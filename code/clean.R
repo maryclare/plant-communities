@@ -14,12 +14,14 @@ eco_region         <- c("EASTERN TEMPERATE FORESTS", "NORTHERN FORESTS")
 data_source        <- "NPS" 
 include_elevation  <- TRUE # !getting elev data is slow! ~ 64s on small region
 elevation_res      <- 6     # scale of larger plots ~= avg elev across plots
-subset_region      <- TRUE  # if you want fewer plots for analysis
+subset_region      <- FALSE  # if you want fewer plots for analysis
 lon_min            <- -75 
 lon_max            <- -65
 lat_min            <- 41
 lat_max            <- 50 # -75, -65, 41, 50 gives 1065 plots across NJ - ME
-plant_type         <- "Forb/herb"
+plant_type         <- c("Forb/herb", "Graminoid", "Lichenous", "Nonvascular", 
+                        "Shrub", "Subshrub", "Tree", "Vine")
+                      # "Forb/herb"
 percent_occ_cutoff <- 0.05 # species in fewer than this prop of plots removed
 # Limit to species that are present in 10 plots (trees) or 5% (others) of sites...
 latent_var_cutoff  <- 0.75 # move species more abundant to end of ordering 
