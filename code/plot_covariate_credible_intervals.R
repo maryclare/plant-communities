@@ -94,18 +94,22 @@ plot_sfJSDM_covariate_effects <- function(sfJSDM_output,
   return(plot_list)
 }
 
-# 
+
 # # After running sfJSDM()
-# plots <- plot_sfJSDM_covariate_effects(out_soil_15cm, 
+# plots <- plot_sfJSDM_covariate_effects(out_5m,
 #                                        species_names = rownames(data$y),
-#                                        n_species = 98, 
-#                                        covariate_names = colnames(data$covs)[c(1:4, 8:11, 13, 20, 27)], 
+#                                        n_species = 98,
+#                                        covariate_names = 
+#                                          c("intercept", colnames(data$covs)[c(1:4, 8:11, 13, 20, 27)]), 
+#                                            # paste0(colnames(data$covs)[c(1:4, 8:11, 13, 20, 27)], "_quad")),
 #                                        cred_level = 0.95)
 # 
 # # View individual plots
 # plots[[2]]  # First covariate
 # 
-# Save all plots
+# # Save all plots
+# pdf("./data/covariate_plots_5cm.pdf", height = 10, width = 7)
 # for (i in seq_along(plots)) {
-#   ggsave(paste0("./data/covariate_", covariate_names[i], ".png"), plots[[i]], width = 10, height = 8)
+#   print(plots[[i]])
 # }
+# dev.off()
