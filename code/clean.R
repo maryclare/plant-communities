@@ -327,6 +327,9 @@ plot_covariates <- plot_covariates |>
   column_to_rownames(var = "Plot") |> 
   na.omit() 
 
+# convert aspect to folded aspect for model assuming aspect is expressed in degrees
+plot_covariates$asp <- abs(180 - abs(plot_covariates$asp - 225)) 
+
 # All same dimensions? 
 dim(taxa_data)
 dim(plot_coords)  
