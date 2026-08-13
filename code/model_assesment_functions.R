@@ -11,12 +11,13 @@ library(tictoc)
 # compute the linear combination w*_i(s_j) for one species, one site
 get_lin_comb <- function(data, 
                          species = 1, 
-                         site = 1, 
-                         num_chains = 3, 
-                         num_samples = 3000){
+                         site = 1){
   if(!is.numeric(species)){
     species <- which(data$sp.names == species)
   }
+  
+  num_chains <- data$n.chains
+  num_samples <- (data$n.samples - data$n.burn) / data$n.thin
   
   temp_df <- data.frame(chain1 = numeric(num_samples))
   
@@ -36,12 +37,13 @@ get_lin_comb <- function(data,
 plot_lin_comb <- function(data, 
                           random = FALSE, 
                           species = 1, 
-                          site = 1, 
-                          num_chains = 3, 
-                          num_samples = 3000){
+                          site = 1){
   if(!is.numeric(species)){
     species <- which(data$sp.names == species)
   }
+  
+  num_chains <- data$n.chains
+  num_samples <- (data$n.samples - data$n.burn) / data$n.thin
   
   if(random == TRUE){
     species <- sample(1:num_species, 1) 
@@ -50,9 +52,7 @@ plot_lin_comb <- function(data,
   
   temp_df <- get_lin_comb(data = data, 
                           species = species, 
-                          site = site, 
-                          num_chains = num_chains, 
-                          num_samples = num_samples)
+                          site = site)
   
   temp_df |> 
     mutate(iteration = 1:num_samples) |> 
@@ -70,7 +70,9 @@ plot_lin_comb <- function(data,
 # Determine which chain has better likelihood, i.e., which mode is better... 
 #####
 
-get_elpd <- function(data, num_chains = 3, num_samples = 3000){
+get_elpd <- function(data){
+  num_chains <- data$n.chains
+  num_samples <- (data$n.samples - data$n.burn) / data$n.thin
   elpds <- numeric(3)
   lower <- seq(1, num_chains * num_samples, by = num_samples)
   upper <- seq(num_samples, num_chains * num_samples, by = num_samples)
@@ -81,9 +83,10 @@ get_elpd <- function(data, num_chains = 3, num_samples = 3000){
   return(elpds)
 }
 
-elpd_diff <- function(data, num_chains = 3, num_samples = 3000, 
-                      best_chain = TRUE, best_elpd = TRUE){
-  elpd <- get_elpd(data, num_chains = num_chains, num_samples = num_samples)
+elpd_diff <- function(data, best_chain = TRUE, best_elpd = TRUE){
+  num_chains <- data$n.chains
+  num_samples <- (data$n.samples - data$n.burn) / data$n.thin
+  elpd <- get_elpd(data)
   
   temp_diff <- max(elpd) - min(elpd)
   if(best_chain == TRUE & best_elpd == TRUE){
@@ -101,7 +104,9 @@ elpd_diff <- function(data, num_chains = 3, num_samples = 3000,
   }
 }
 
-get_lhood <- function(data, num_chains = 3, num_samples = 3000){
+get_lhood <- function(data){
+  num_chains <- data$n.chains
+  num_samples <- (data$n.samples - data$n.burn) / data$n.thin
   lhoods  <- matrix(NA, nrow = num_samples, ncol = num_chains)
   lower <- seq(1, num_chains * num_samples, by = num_samples)
   upper <- seq(num_samples, num_chains * num_samples, by = num_samples)
@@ -112,8 +117,10 @@ get_lhood <- function(data, num_chains = 3, num_samples = 3000){
   return(lhoods)
 }
 
-plot_lhood <- function(data, num_chains = 3, num_samples = 3000){
-  temp <- get_lhood(data, num_chains = num_chains, num_samples = num_samples)
+plot_lhood <- function(data){
+  num_chains <- data$n.chains
+  num_samples <- (data$n.samples - data$n.burn) / data$n.thin
+  temp <- get_lhood(data)
   lhoods <- data.frame(temp)
   colnames(lhoods) <- paste0("chain", 1:num_chains)
   lhoods |> 
@@ -128,7 +135,9 @@ plot_lhood <- function(data, num_chains = 3, num_samples = 3000){
 
 
 # reset initial values based on chain
-reset_inits <- function(data, which_chain = 1, num_chains = 3, num_samples = 3000){
+reset_inits <- function(data, which_chain = 1){
+  num_chains <- data$n.chains
+  num_samples <- (data$n.samples - data$n.burn) / data$n.thin
   lower <- seq(1, num_chains * num_samples, by = num_samples)
   upper <- seq(num_samples, num_chains * num_samples, by = num_samples)
   i <- which_chain
@@ -144,14 +153,13 @@ reset_inits <- function(data, which_chain = 1, num_chains = 3, num_samples = 300
   return(inits)
 }
 
-fit_until_converged <- function(data, num_chains = 3, num_samples = 3000, 
-                                compute_elpd = TRUE){
+fit_until_converged <- function(data, compute_elpd = TRUE){
+  num_chains <- data$n.chains
+  num_samples <- (data$n.samples - data$n.burn) / data$n.thin
   tic("Function fit_until_converged")
   if(compute_elpd == TRUE){
-    elpd <- elpd_diff(data, num_chains = num_chains, num_samples = num_samples)
-    inits <- reset_inits(data, which_chain = elpd$best_chain, 
-                         num_chains = num_chains, 
-                         num_samples = num_samples)
+    elpd <- elpd_diff(data)
+    inits <- reset_inits(data, which_chain = elpd$best_chain)
     best_elpds <- elpd$best_elpd
   } else {
     elpd <- list(difference = 999, best_chain = 1)
@@ -193,12 +201,9 @@ fit_until_converged <- function(data, num_chains = 3, num_samples = 3000,
                   n.chains = num_chains)
     toc()
     saveRDS(out, paste0("nps_herbs_northeast_spatialPlus_k300_", num_factors, "factors_modelRun", runs, "_", Sys.Date(), ".rds"))
-    elpd <- elpd_diff(out, num_chains = num_chains, num_samples = num_samples)
+    elpd <- elpd_diff(out)
     best_elpds <- c(best_elpds, elpd$best_elpd)
-    inits <- reset_inits(out, 
-                         which_chain = elpd$best_chain, 
-                         num_chains = num_chains, 
-                         num_samples = num_samples)
+    inits <- reset_inits(out, which_chain = elpd$best_chain)
   }
   
   print("#~#~#~#")
