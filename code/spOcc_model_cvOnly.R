@@ -15,7 +15,7 @@ data_list <- readRDS("./data/wvnhp_herbs_northeast_spOcc_data.rds")
 source("./code/model_assesment_functions.R")
 
 # settings: 
-set.seed        <- 8273
+seed_val        <- 8273
 num_factors     <- 20
 num_neighbors   <- 5
 cov_model       <- "exponential"
@@ -31,6 +31,7 @@ num_omp_threads <- 20
 verbose         <- TRUE
 num_report      <- 100 # reports after number of batches
 
+set.seed(seed_val)
 #####
 # Spatial+ treatment of covariates
 #####
@@ -192,7 +193,8 @@ out <- sfJSDM(formula = jsdm_formula,
               n.chains = num_chains, 
               k.fold = 10, 
               k.fold.only = T, 
-              k.fold.threads = num_omp_threads)
+              k.fold.threads = num_omp_threads, 
+              k.fold.seed = seed_val)
 
 print("successfully ran the script!!")
 
