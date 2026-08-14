@@ -15,7 +15,7 @@ data_list <- readRDS("~/plant_communities/data/nps_allfull_wsoil_spOcc_data.rds"
 source("~/plant_communities/code/model_assesment_functions.R")
 
 # settings: 
-set.seed        <- 8274
+seed_val        <- 8274
 num_factors     <- 20
 num_neighbors   <- 15
 cov_model       <- "exponential"
@@ -31,7 +31,7 @@ num_omp_threads <- 16
 verbose         <- TRUE
 num_report      <- 100 # reports after number of batches
 
-
+set.seed(seed_val)
 # Model formula
 jsdm_formula <- ~ scale(tmax) + scale(tmin) + scale(soil) + 
   scale(ppt) + scale(vpd) + scale(elv) + scale(slp) + 
