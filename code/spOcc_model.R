@@ -14,7 +14,7 @@ data_list <- readRDS("./data/nps_herbs_northeast_spOcc_data.rds")
 source("./code/model_assesment_functions.R")
 
 # settings: 
-set.seed        <- 8273
+seed_val        <- 8273
 num_factors     <- 2
 num_neighbors   <- 5
 cov_model       <- "exponential"
@@ -30,7 +30,7 @@ tuning          <- list(phi = 0.5) # adjusts adaptive tuning for phi
 verbose         <- TRUE
 num_report      <- 100 # reports after number of batches
 
-
+set.seed(seed.val)
 #####
 # Spatial+ treatment of covariates
 #####
@@ -202,6 +202,7 @@ out <- sfJSDM(formula = jsdm_formula,
               n.thin = num_thin, 
               n.chains = num_chains,
               k.fold.only = T, 
+              k.fold.seed = seed_val,
               #k.fold.threads = num_omp_threads,
               k.fold = 10)
 

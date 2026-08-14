@@ -13,7 +13,7 @@ data_list <- readRDS("./data/nps_herbs_northeast_spOcc_data.rds")
 source("./code/model_assesment_functions.R")
 
 # settings: 
-set.seed        <- 8273
+seed_val        <- 8273
 num_factors     <- 3
 num_neighbors   <- 5
 cov_model       <- "exponential"
@@ -29,6 +29,7 @@ num_omp_threads <- 8
 verbose         <- TRUE
 num_report      <- 100 # reports after number of batches
 
+set.seed(seed_val)
 #####
 # Spatial+ treatment of covariates
 #####
