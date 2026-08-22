@@ -15,6 +15,7 @@ get_lin_comb <- function(data,
   if(!is.numeric(species)){
     species <- which(data$sp.names == species)
   }
+  num_species <- length(data$sp.names)
   
   num_chains <- data$n.chains
   num_samples <- (data$n.samples - data$n.burn) / data$n.thin
@@ -25,7 +26,7 @@ get_lin_comb <- function(data,
     for(j in 1:num_samples){
       ind <- (i - 1) * num_samples + j
       temp_df[j, i] <- 
-        matrix(data$lambda.samples[ind, ], nrow = 36)[species, ] %*% 
+        matrix(data$lambda.samples[ind, ], nrow = num_species)[species, ] %*% 
         data$w.samples[ind, , site]
     }
   }
@@ -41,7 +42,9 @@ plot_lin_comb <- function(data,
   if(!is.numeric(species)){
     species <- which(data$sp.names == species)
   }
-  
+  num_species <- length(data$sp.names)
+  num_sites   <- dim(data$coords)[1]
+    
   num_chains <- data$n.chains
   num_samples <- (data$n.samples - data$n.burn) / data$n.thin
   
@@ -68,6 +71,7 @@ plot_lin_comb <- function(data,
 
 #####
 # Determine which chain has better likelihood, i.e., which mode is better... 
+#    ** This isn't full joint likelihood. It is the 
 #####
 
 get_elpd <- function(data){
