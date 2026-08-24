@@ -121,11 +121,18 @@ get_lhood <- function(data){
   return(lhoods)
 }
 
-plot_lhood <- function(data){
+plot_lhood <- function(data, get_lhood = FALSE){
   num_chains <- data$n.chains
   num_samples <- (data$n.samples - data$n.burn) / data$n.thin
-  temp <- get_lhood(data)
-  lhoods <- data.frame(temp)
+  if(get_lhood == TRUE){
+    temp <- get_lhood(data)
+    lhoods <- data.frame(temp)
+  } else if(dim(data$like.samples)[2] == data$n.chains){
+    lhoods <- data.frame(data$like.samples)
+  } else {
+    temp <- matrix(data$like.samples, nrow = data$n.post)
+    lhoods <- data.frame(temp)
+  }
   colnames(lhoods) <- paste0("chain", 1:num_chains)
   lhoods |> 
     mutate(iteration = 1:num_samples) |> 
