@@ -7,14 +7,15 @@
 #     3) allow user to remove summing over sites in CV
 #         (default is to sum, to override change 'k.sum.sites' to FALSE)
 
-library(lme4)
-library(coda)
-library(abind)
-library(reformulas)
-library(foreach)
-library(doParallel)
+# load packages
+required_packages <- c("lme4", "abind", "reformulas", "foreach", "doParallel")
+missing_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
+if(length(missing_packages) > 0) {
+  install.packages(missing_packages, dependencies = TRUE)
+}
+lapply(required_packages, library, character.only = TRUE)
 
-
+# updated function
 sfJSDM_new <- function(formula, data, inits, priors, 
                        tuning, cov.model = 'exponential', NNGP = TRUE, 
                        n.neighbors = 15, search.type = "cb", 
