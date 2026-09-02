@@ -7,13 +7,19 @@
 #     3) allow user to remove summing over sites in CV
 #         (default is to sum, to override change 'k.sum.sites' to FALSE)
 
-# load packages
-required_packages <- c("lme4", "abind", "reformulas", "foreach", "doParallel")
-missing_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
-if(length(missing_packages) > 0) {
-  install.packages(missing_packages, dependencies = TRUE)
-}
-lapply(required_packages, library, character.only = TRUE)
+# load packages/support functions
+findbars <- getFromNamespace("findbars", "reformulas")
+nobars <- getFromNamespace("nobars", "reformulas")
+mkNNIndxCB <- getFromNamespace("mkNNIndxCB", "spOccupancy")
+mkUIndx <- getFromNamespace("mkUIndx", "spOccupancy")
+predict.sfMsPGOcc <- getFromNamespace("predict.sfMsPGOcc", "spOccupancy")
+predict.sfJSDM <- getFromNamespace("predict.sfJSDM", "spOccupancy")
+parseFormula <- getFromNamespace("parseFormula", "spOccupancy")
+nn2 <- getFromNamespace("nn2", "RANN")
+library(doParallel)
+library(coda)
+library(spOccupancy)
+
 
 # updated function
 sfJSDM_new <- function(formula, data, inits, priors, 
@@ -153,8 +159,8 @@ sfJSDM_new <- function(formula, data, inits, priors,
   # Check whether random effects are sent in as numeric, and
   # return error if they are. 
   # Occurrence ----------------------
-  if (!is.null(findbars(formula))) {
-    re.names <- sapply(findbars(formula), all.vars)
+  if (!is.null(lme4::findbars(formula))) {
+    re.names <- sapply(lme4::findbars(formula), all.vars)
     for (i in 1:length(re.names)) {
       if (is(data$covs[, re.names[i]], 'factor')) {
         stop(paste("error: random effect variable ", re.names[i], " specified as a factor. Random effect variables must be specified as numeric.", sep = ''))
@@ -1473,9 +1479,12 @@ sfJSDM_new <- function(formula, data, inits, priors,
         
         if(k.sum.sites == TRUE){
           apply(like.samples, 1, function(a) sum(log(a), na.rm = TRUE))
+        } else {
+          like.samples <- log(like.samples)
         }
       }
-      model.deviance <- -2 * model.deviance
+      
+      model.deviance <- lapply(model.deviance, function(x){-2 * x})
       # Return objects from cross-validation
       out$k.fold.deviance <- model.deviance
       stopImplicitCluster()
@@ -1490,102 +1499,8 @@ sfJSDM_new <- function(formula, data, inits, priors,
 
 
 
-# Support functions: 
-parseFormula <-  function(formula, data, intercept=TRUE, justX=FALSE){
-  
-  # Find random effect terms
-  bars <- findbars(formula)
-  re.terms <- NULL
-  if (!is.null(bars)) {
-    re.terms <- mkReTrms(bars, data)
-  }
-  
-  formula <- nobars(formula)
-  
-  # extract Y, X, and variable names for model formula and frame
-  mt <- terms(formula, data=data)
-  if(missing(data)) data <- sys.frame(sys.parent())
-  mf <- match.call(expand.dots = FALSE)
-  mf$intercept <- mf$justX <- NULL
-  mf$drop.unused.levels <- TRUE
-  mf[[1]] <- as.name("model.frame")
-  mf <- eval(mf, sys.frame(sys.parent()))
-  if (!intercept){
-    attributes(mt)$intercept <- 0
-  }
-  
-  
-  # null model support
-  X <- if (!is.empty.model(mt)) model.matrix(mt, mf)
-  X <- as.matrix(X)         # X matrix
-  xvars <- dimnames(X)[[2]] # X variable names
-  xobs  <- dimnames(X)[[1]] # X observation names
-  
-  # Get random effects
-  X.re <- matrix(NA, nrow(X), length(re.terms$Ztlist))
-  if (ncol(X.re) > 0) {
-    # Support for RE only model
-    if (length(re.terms$Ztlist[[1]]@i) != nrow(X)) {
-      X.re <- matrix(NA, length(re.terms$Ztlist[[1]]@i), 
-                     length(re.terms$Ztlist)) 
-    }
-    for (j in 1:ncol(X.re)) {
-      X.re[, j] <- as.vector(re.terms$Ztlist[[j]]@i)
-    }
-    colnames(X.re) <- names(re.terms$flist)
-  }
-  return(list(X, xvars, xobs, X.re))
-}
 
-mkUIndx <- function(n, m, nn.indx, nn.indx.lu, search.type){
-  
-  n.indx <- (1+m)/2*m+(n-m-1)*m
-  u.indx <- rep(0, n.indx)
-  u.indx.lu <- rep(0, 2*n)
-  ui.indx <- rep(0, n.indx)
-  
-  storage.mode(n) <- "integer"
-  storage.mode(m) <- "integer"
-  storage.mode(nn.indx) <- "integer"
-  storage.mode(u.indx) <- "integer"
-  storage.mode(u.indx.lu) <- "integer"
-  storage.mode(ui.indx) <- "integer"
-  storage.mode(nn.indx.lu) <- "integer"
-  storage.mode(search.type) <- "integer"
-  
-  ptm <- proc.time()
-  
-  out <- .Call("mkUIndx", n, m, nn.indx, u.indx, u.indx.lu, ui.indx, nn.indx.lu, search.type)
-  
-  run.time <- proc.time() - ptm
-  
-  list("run.time"=run.time, "u.indx"=as.integer(u.indx), "u.indx.lu"=as.integer(u.indx.lu), "ui.indx"=as.integer(ui.indx))
-}
 
-mkNNIndxCB <- function(coords, m, n.omp.threads=1){
-  
-  n <- nrow(coords)
-  nIndx <- (1+m)/2*m+(n-m-1)*m
-  nnIndx <- rep(0, nIndx)
-  nnDist <- rep(0, nIndx)
-  nnIndxLU <- matrix(0, n, 2)
-  
-  n <- as.integer(n)
-  m <- as.integer(m)
-  coords <- as.double(coords)
-  nnIndx <- as.integer(nnIndx)
-  nnDist <- as.double(nnDist)
-  nnIndxLU <- as.integer(nnIndxLU)
-  n.omp.threads <- as.integer(n.omp.threads)
-  
-  ptm <- proc.time()
-  
-  out <- .Call("mkNNIndxCB", n, m, coords, nnIndx, nnDist, nnIndxLU, n.omp.threads)
-  
-  run.time <- proc.time() - ptm
-  
-  list("run.time"=run.time, "nnIndx"=as.integer(nnIndx), "nnDist"=as.double(nnDist), "nnIndxLU"=nnIndxLU)
-}
 
 
 
