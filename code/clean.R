@@ -225,6 +225,7 @@ taxa_data         <- rbind(taxa_data, temp_df)
 plot_data         <- st_as_sf(plot_data, coords=c("Long","Lat"))
 st_crs(plot_data) <- st_crs(4326)
 plot_data         <- cbind(plot_data, as.data.frame(st_coordinates(plot_data)))
+saveRDS(plot_data, "./data/nps_full_plot_data.rds")
 
 ########
 # TW - map the coordinates:
